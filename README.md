@@ -145,6 +145,7 @@ The catalog prices were chosen to fit the dummy API's five orders, so "none of t
 | `OPENROUTER_MODEL` | `openai/gpt-oss-120b:exacto` | Model |
 | `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | Any OpenAI-compatible endpoint, e.g. a self-hosted gpt-oss for controlled data |
 | `REASONING_EFFORT` | `low` | `low`, `medium`, `high`, or empty for the provider default |
+| `OPENROUTER_IGNORE_PROVIDERS` | `CoreWeave` | Providers OpenRouter should skip. CoreWeave failed every tool call in October 2026 |
 | `ORDER_API_URL` | `http://localhost:5001` | Customer API; auto-started only when local |
 | `MAX_LLM_CALLS` | `200` | Extraction calls per query before records are reported as `over_budget` |
 | `UI_PORT`, `LOG_LEVEL` | `8000`, `INFO` | |

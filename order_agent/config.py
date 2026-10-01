@@ -15,6 +15,9 @@ MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:exacto")
 ORDER_API_URL = os.getenv("ORDER_API_URL", "http://localhost:5001")
 # gpt-oss reasoning effort: "low" | "medium" | "high" ("" = provider default). Copying fields needs little reasoning.
 REASONING_EFFORT = os.getenv("REASONING_EFFORT", "low")
+# OpenRouter providers to skip, comma-separated. CoreWeave returned finish_reason=error with no tool call on every
+# tool-calling request (October 2026), while DeepInfra passed the same requests.
+IGNORE_PROVIDERS = [p.strip() for p in os.getenv("OPENROUTER_IGNORE_PROVIDERS", "CoreWeave").split(",") if p.strip()]
 UI_PORT = int(os.getenv("UI_PORT", "8000"))
 
 # Context-window and cost guards. Every LLM call sees one query or one record, so input size is fixed;
