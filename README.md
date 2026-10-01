@@ -7,7 +7,8 @@ The LLM does two narrow language tasks. Deterministic Python checks everything i
 ## Quick start
 
 ```bash
-pip install -r requirements.txt   # Python 3.13; requirements-dev.txt adds pytest
+python3.13 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt   # requirements-dev.txt adds pytest
 cp .env.example .env              # then set OPENROUTER_API_KEY
 python main.py "Show me all orders where the buyer was located in Ohio and total value was over 500."
 ```
