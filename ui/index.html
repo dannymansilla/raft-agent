@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Agent</title>
+<style>
+  :root {
+    --bg: #f6f6f7; --surface: #ffffff; --subtle: #f1f1f3; --border: #e3e3e8;
+    --text: #17171c; --muted: #6b6b76; --accent: #4f46e5; --accent-soft: #eef0ff;
+    --ok: #15803d; --warn: #b45309; --warn-soft: #fff7e6; --err: #b91c1c; --err-soft: #fdecec;
+    --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0c0f; --surface: #15151a; --subtle: #1c1c22; --border: #2a2a32;
+      --text: #ececf1; --muted: #9a9aa6; --accent: #8b87ff; --accent-soft: #23234a;
+      --ok: #4ade80; --warn: #fbbf24; --warn-soft: #2e2410; --err: #f87171; --err-soft: #331616;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .tagline { color: var(--muted); margin: 2px 0 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+
+  /* Segmented control */
+  .segmented { display: inline-flex; padding: 3px; background: var(--subtle); border: 1px solid var(--border); border-radius: 8px; }
+  .segmented label { padding: 5px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); user-select: none; }
+  .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+  .segmented input:checked + span { color: var(--text); }
+  .segmented label:has(input:checked) { background: var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+  .segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); }
+
+  /* Query */
+  .query { padding: 16px; margin-bottom: 20px; }
+  form { display: flex; gap: 10px; }
+  input[type=text] {
+    flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 11px 14px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  button { font: inherit; cursor: pointer; border-radius: 8px; }
+  .primary { padding: 0 20px; border: 0; background: var(--accent); color: #fff; font-weight: 600; min-width: 88px; }
+  .primary:disabled { opacity: 0.6; cursor: progress; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; color: var(--muted); font-size: 13px; }
+  .chip { padding: 3px 10px; font-size: 13px; background: var(--subtle); color: var(--text); border: 1px solid var(--border); border-radius: 999px; }
+  .chip:hover { border-color: var(--accent); }
+
+  /* Layout */
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; padding: 10px 12px 0; border-bottom: 1px solid var(--border); }
+  .tab { padding: 8px 12px; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); }
+  .tab[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .panel { padding: 16px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .count { color: var(--muted); }
+
+  /* Table */
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.mono { font-family: var(--mono); font-size: 13px; }
+
+  pre { margin: 0; padding: 14px; background: var(--subtle); border-radius: 8px; overflow: auto; font: 13px/1.5 var(--mono); max-height: 480px; }
+  .ghost { padding: 4px 10px; background: none; border: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+
+  /* States */
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+  .alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; background: var(--err-soft); color: var(--err); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Pipeline */
+  .pipeline { padding: 16px; }
+  .pipeline h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .step { position: relative; padding: 0 0 16px 26px; }
+  .step:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 18px; bottom: 2px; width: 2px; background: var(--border); }
+  .dot { position: absolute; left: 0; top: 3px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; color: #fff; background: var(--ok); }
+  .step.error .dot { background: var(--err); }
+  .step.skipped .dot { background: var(--border); }
+  .step-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+  .step.skipped .step-head { color: var(--muted); font-weight: 400; }
+  .step-meta { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .step-detail { color: var(--muted); margin-top: 2px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .pill { font: 12px var(--mono); padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+  .drop { margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+  .drop code { font-family: var(--mono); }
+  .hint { color: var(--muted); font-size: 13px; margin: 0; }
+
+  /* Insights */
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .stat { padding: 10px 12px; background: var(--subtle); border-radius: 8px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .insights h3 { font-size: 13px; margin: 20px 0 8px; }
+  .insights p { color: var(--muted); margin: 0 0 12px; }
+  .chart { width: 100%; max-width: 560px; height: auto; display: block; }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .chart .axis { stroke: var(--border); }
+  .chart .diag { stroke: var(--muted); stroke-dasharray: 4 4; }
+  .chart .pt { fill: var(--muted); fill-opacity: 0.35; }
+  .chart .pt.flag { fill: var(--warn); fill-opacity: 1; stroke: var(--surface); stroke-width: 2; }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Order Agent</h1>
+      <p class="tagline">Ask about orders in plain English. The LLM reads, Python decides.</p>
+    </div>
+    <div class="segmented" role="radiogroup" aria-label="Data source">
+      <label><input type="radio" name="source" value="api" checked><span>Live API</span></label>
+      <label title="Format drift, a missing total and a prompt injection. The injected record is always withheld and reported, so answers on this sample are partial."><input type="radio" name="source" value="sample"><span>Messy sample</span></label>
+    </div>
+  </header>
+
+  <section class="card query">
+    <form id="form">
+      <input id="q" type="text" autocomplete="off" aria-label="Question"
+             value="Show me all orders where the buyer was located in Ohio and total value was over 500.">
+      <button class="primary" id="run" type="submit">Run</button>
+    </form>
+    <div class="examples" id="examples">Try:</div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="results" aria-selected="true">Results</button>
+        <button class="tab" role="tab" data-tab="insights" aria-selected="false" hidden>Insights</button>
+        <button class="tab" role="tab" data-tab="json" aria-selected="false">JSON</button>
+      </div>
+      <div class="panel" id="panel"></div>
+    </section>
+
+    <aside class="card pipeline">
+      <h2><span>Pipeline</span><span id="total-time"></span></h2>
+      <div id="pipeline"><p class="hint">Run a query to see each step: what the LLM parsed, how many records were fetched and extracted, and which ones failed grounding.</p></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const EXAMPLES = {
+  "Ohio over 500": "Show me all orders where the buyer was located in Ohio and total value was over 500.",
+  "Texas": "orders from Texas",
+  "Order 1003": "show me order 1003",
+  "Bought a monitor": "anyone who bought a monitor",
+  "Between 100 and 800": "orders between 100 and 800 dollars",
+  "Unusual orders": "show me unusual orders",
+  "Unsupported": "what's the weather in Columbus?",
+};
+
+// Known steps get friendly labels; anything new the server adds still renders.
+const STEPS = [
+  { name: "parse_query",    label: "Parse query" },
+  { name: "fetch_orders",   label: "Fetch",    detail: n => `${n} raw records` },
+  { name: "screen_records", label: "Screen",   detail: n => `${n} records passed` },
+  { name: "extract_orders", label: "Extract",  detail: n => `${n} orders extracted` },
+  { name: "validate",       label: "Validate", detail: (n, prev) => `${n} of ${prev} grounded in source` },
+  { name: "score",          label: "Score",    detail: n => `${n} orders scored` },
+  { name: "apply_filter",   label: "Filter",   detail: n => `${n} matched` },
+];
+
+const money = v => v == null ? "—" : v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+const COLUMNS = [
+  { key: "orderId", label: "Order", mono: true },
+  { key: "buyer",   label: "Buyer" },
+  { key: "state",   label: "State" },
+  { key: "total",   label: "Total", num: true, format: money },
+];
+// Added only when the server sends the price model's insights.
+const INSIGHT_COLUMNS = [
+  { key: "expected", label: "Expected", num: true, format: money },
+  { key: "flag",     label: "Flag", format: (v, o) => v ? h("span", { class: "badge", title: o.reason }, "unusual")
+      : o.expected == null && o.reason ? h("span", { class: "count", title: o.reason }, "not scored") : "" },
+];
+const ui = { result: null, tab: "results", running: false, timer: null };
+const $ = sel => document.querySelector(sel);
+
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) if (c != null && c !== false) el.append(c instanceof Node ? c : String(c));
+  return el;
+}
+
+// ---------- query ----------
+async function runQuery(query) {
+  if (ui.running || !query.trim()) return;
+  const source = document.querySelector("input[name=source]:checked").value;
+  ui.running = true;
+  const started = Date.now();
+  $("#run").disabled = true;
+  $("#run").replaceChildren(h("span", { class: "spinner", "aria-label": "Running" }));
+  const tick = () => renderRunning(Math.round((Date.now() - started) / 1000));
+  tick(); ui.timer = setInterval(tick, 1000);
+  try {
+    const res = await fetch("/api/query", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, source }),
+    });
+    ui.result = await res.json();
+  } catch (e) {
+    ui.result = { orders: [], error: `Could not reach the server: ${e.message}` };
+  } finally {
+    clearInterval(ui.timer);
+    ui.running = false;
+    $("#run").disabled = false;
+    $("#run").replaceChildren("Run");
+    render();
+  }
+}
+
+function renderRunning(seconds) {
+  $("#panel").replaceChildren(h("div", { class: "empty" },
+    h("strong", {}, h("span", { class: "spinner" }), `  Running… ${seconds}s`),
+    "A query takes ~10–20s: one LLM call to parse it, then one per record, in parallel."));
+  $("#pipeline").replaceChildren(h("p", { class: "hint" }, "Working through parse → fetch → extract → validate → score → filter…"));
+  $("#total-time").textContent = "";
+}
+
+// ---------- results panel ----------
+function render() {
+  const r = ui.result;
+  $("[data-tab=insights]").hidden = !r?.insights;
+  if (ui.tab === "insights" && !r?.insights) ui.tab = "results";
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === ui.tab));
+  const views = { results: renderResults, json: renderJson, insights: renderInsights };
+  $("#panel").replaceChildren(r ? views[ui.tab](r) : h("div", { class: "empty" }, h("strong", {}, "No results yet"), "Pick an example or type a question."));
+  renderPipeline(r?.trace, r?.skipped || []);
+}
+
+function renderResults(r) {
+  const skipped = r.skipped || [];
+  const alert = r.error ? h("div", { class: "alert", role: "alert" }, r.error)
+    : skipped.length ? h("div", { class: "alert", role: "alert" },
+        `Partial answer: ${skipped.length} record${skipped.length === 1 ? "" : "s"} could not be read or verified and may match (${[...new Set(skipped.map(s => s.reason.replaceAll("_", " ")))].join(", ")}). See the pipeline panel.`)
+    : null;
+  if (!r.orders.length) {
+    return h("div", {}, alert, !r.error && h("div", { class: "empty" },
+      h("strong", {}, "No orders matched"), "Check the parsed filter in the pipeline panel to see how the question was understood."));
+  }
+  // Rows arrive sorted by orderId, exactly as the CLI prints them.
+  const scores = r.insights?.scores || {};
+  const columns = r.insights ? [...COLUMNS, ...INSIGHT_COLUMNS] : COLUMNS;
+  const rows = r.orders.map(o => ({ ...o, expected: scores[o.orderId]?.expected, flag: scores[o.orderId]?.anomalous, reason: scores[o.orderId]?.reason }));
+
+  return h("div", {}, alert,
+    h("div", { class: "panel-head" }, h("span", { class: "count" }, `${rows.length} order${rows.length === 1 ? "" : "s"}`)),
+    h("div", { class: "table-scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, columns.map(c => h("th", { class: c.num ? "num" : "" }, c.label)))),
+      h("tbody", {}, rows.map(o => h("tr", {}, columns.map(c =>
+        h("td", { class: [c.num && "num", c.mono && "mono"].filter(Boolean).join(" ") }, c.format ? c.format(o[c.key], o) : o[c.key] ?? "—"))))))));
+}
+
+function renderJson(r) {
+  // Exactly what `python main.py` prints: the trace is UI-only.
+  const out = { orders: r.orders, ...(r.skipped ? { skipped: r.skipped } : {}), ...(r.error ? { error: r.error } : {}) };
+  const text = JSON.stringify(out, null, 2);
+  const copy = h("button", { class: "ghost", onclick: async () => { await navigator.clipboard.writeText(text); copy.textContent = "Copied"; } }, "Copy");
+  return h("div", {}, h("div", { class: "panel-head" }, h("span", { class: "count" }, "Same output as the CLI"), copy), h("pre", {}, text));
+}
+
+// ---------- insights panel ----------
+function renderInsights(r) {
+  const m = r.insights.model;
+  const pct = v => `${Math.round(v * 100)}%`;
+  const stat = (value, label) => h("div", { class: "stat" }, h("b", {}, value), h("span", {}, label));
+  return h("div", { class: "insights" },
+    h("p", {}, "A linear regression predicts each order's total from its items; an order is flagged when its total is more than ",
+      `${m.anomaly_z} standard deviations from that prediction. Trained on synthetic orders (5 real records can't train anything); it scores validated orders only and never decides which orders exist.`),
+    h("div", { class: "stats" },
+      stat(m.n_train.toLocaleString(), "training orders"), stat(m.n_holdout.toLocaleString(), "holdout orders"),
+      stat(m.r2.toFixed(3), "R² (holdout)"), stat(money(m.mae), "MAE (holdout)"),
+      stat(pct(m.precision), `precision (${m.n_planted} planted)`), stat(pct(m.recall), "recall")),
+    h("h3", {}, "Holdout: actual vs expected total"),
+    scatter(r.insights.holdout),
+    h("h3", {}, "Learned price per item"),
+    h("div", { class: "table-scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Item"), h("th", { class: "num" }, "Learned"), h("th", { class: "num" }, "True"))),
+      h("tbody", {}, Object.entries(m.prices).map(([item, p]) =>
+        h("tr", {}, h("td", {}, item), h("td", { class: "num" }, money(p.learned)), h("td", { class: "num" }, money(p.true))))))));
+}
+
+function scatter(points) {
+  // Inline SVG, log-log: planted anomalies reach ~$20k, which would squash normal orders on a linear scale.
+  const svg = (tag, attrs = {}, ...children) => {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    el.append(...children);
+    return el;
+  };
+  const W = 560, H = 360, pad = { l: 56, r: 12, t: 12, b: 36 };
+  const lo = 1, hi = 5;  // $10 .. $100,000
+  const x = v => pad.l + (Math.log10(Math.max(v, 10)) - lo) / (hi - lo) * (W - pad.l - pad.r);
+  const y = v => H - pad.b - (Math.log10(Math.max(v, 10)) - lo) / (hi - lo) * (H - pad.t - pad.b);
+  const ticks = [10, 100, 1000, 10000, 100000];
+  const label = v => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
+  const ordered = [...points].sort((a, b) => a[2] - b[2]);  // flagged points drawn on top
+  return h("div", {},
+    svg("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Actual versus expected total for holdout orders" },
+      ...ticks.flatMap(t => [
+        svg("line", { class: "axis", x1: pad.l, x2: W - pad.r, y1: y(t), y2: y(t) }),
+        svg("text", { x: pad.l - 6, y: y(t) + 4, "text-anchor": "end" }, label(t)),
+        svg("text", { x: x(t), y: H - pad.b + 16, "text-anchor": "middle" }, label(t)),
+      ]),
+      svg("line", { class: "diag", x1: x(10), y1: y(10), x2: x(100000), y2: y(100000) }),
+      svg("text", { x: (W + pad.l) / 2, y: H - 4, "text-anchor": "middle" }, "expected total"),
+      svg("text", { x: 12, y: (H - pad.b) / 2, "text-anchor": "middle", transform: `rotate(-90 12 ${(H - pad.b) / 2})` }, "actual total"),
+      ...ordered.map(([actual, expected, flagged]) =>
+        svg("circle", { class: flagged ? "pt flag" : "pt", cx: x(expected), cy: y(actual), r: flagged ? 5 : 3 },
+          svg("title", {}, `actual ${money(actual)} · expected ${money(expected)}${flagged ? " · flagged" : ""}`)))),
+    h("div", { class: "legend" },
+      h("span", {}, h("i", { style: "background: var(--muted); opacity: 0.5" }), "normal"),
+      h("span", {}, h("i", { style: "background: var(--warn)" }), "flagged unusual"),
+      h("span", {}, "dashed line: actual = expected")));
+}
+
+// ---------- pipeline panel ----------
+function describeFilter(f) {
+  if (!f) return [];
+  const pills = [];
+  if (f.states?.length) pills.push(`state = ${f.states.join(" | ")}`);
+  for (const c of f.total || []) pills.push(`total ${c.op} ${c.value}`);
+  if (f.buyer_name) pills.push(`buyer ~ "${f.buyer_name}"`);
+  if (f.order_ids?.length) pills.push(`order = ${f.order_ids.join(" | ")}`);
+  if (f.item_keyword) pills.push(`item ~ "${f.item_keyword}"`);
+  if (f.anomalous_only) pills.push("unusual only");
+  for (const [k, v] of Object.entries(f)) {  // fields added later still show up
+    if (!["supported", "states", "total", "buyer_name", "order_ids", "item_keyword", "anomalous_only"].includes(k) && v != null && v !== false) pills.push(`${k} = ${v}`);
+  }
+  return pills.length ? pills : ["no filters (all orders)"];
+}
+
+// Which step reports each kind of skipped record.
+const SKIP_STEP = { quarantined: "screen_records", extraction_failed: "extract_orders", no_order_found: "extract_orders",
+  over_budget: "extract_orders", ungrounded: "validate", conflicting_duplicate: "validate" };
+
+function renderPipeline(trace, skipped) {
+  if (!trace) return;
+  $("#total-time").textContent = `${trace.seconds.toFixed(1)}s`;
+  const ran = Object.fromEntries(trace.steps.map(s => [s.name, s]));
+  const names = [...STEPS.map(s => s.name), ...trace.steps.map(s => s.name).filter(n => !STEPS.some(s => s.name === n))];
+  const known = Object.fromEntries(STEPS.map(s => [s.name, s]));
+  let prevCount = null;
+
+  $("#pipeline").replaceChildren(h("ol", { class: "steps" }, names.map(name => {
+    const step = ran[name], spec = known[name] || { label: name };
+    if (!step) return h("li", { class: "step skipped" }, h("span", { class: "dot" }), h("div", { class: "step-head" }, spec.label, h("span", { class: "step-meta" }, "skipped")));
+    const detail = step.error || (step.count != null && (spec.detail ? spec.detail(step.count, prevCount) : `${step.count}`));
+    if (step.count != null) prevCount = step.count;
+    return h("li", { class: `step${step.error ? " error" : ""}` },
+      h("span", { class: "dot" }, step.error ? "!" : "✓"),
+      h("div", { class: "step-head" }, spec.label, h("span", { class: "step-meta" }, `${step.seconds.toFixed(2)}s`)),
+      detail && h("div", { class: "step-detail" }, detail),
+      name === "parse_query" && trace.filter && h("div", { class: "pills" }, describeFilter(trace.filter).map(p => h("span", { class: "pill" }, p))),
+      skipped.filter(s => SKIP_STEP[s.reason] === name).map(s => h("div", { class: "drop" },
+        `Skipped (${s.reason.replaceAll("_", " ")}) `, s.orderId && h("code", {}, s.orderId),
+        s.detail && ` ${s.detail}: `, h("code", {}, s.record))));
+  })));
+}
+
+// ---------- wiring ----------
+for (const [label, query] of Object.entries(EXAMPLES)) {
+  $("#examples").append(h("button", { class: "chip", type: "button", onclick: () => { $("#q").value = query; runQuery(query); } }, label));
+}
+$("#form").addEventListener("submit", e => { e.preventDefault(); runQuery($("#q").value); });
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { ui.tab = t.dataset.tab; render(); }));
+render();
+</script>
+</body>
+</html>

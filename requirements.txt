@@ -1,0 +1,10 @@
+# Exact versions the offline and live evals passed on (Python 3.13).
+flask==3.1.3
+langchain-core==1.6.5
+langchain-openai==1.6.6
+langgraph==1.2.12
+numpy==2.5.3
+pydantic==2.13.5
+python-dotenv==1.2.3
+requests==2.34.2
+scikit-learn==1.9.1
