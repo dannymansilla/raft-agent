@@ -83,7 +83,9 @@ class OrderFields(BaseModel):
 
     model_config = LENIENT_IDS
 
-    orderId: str | None = Field(None, description="Order ID exactly as written in the record, or null if absent.")
+    orderId: str | None = Field(None, description="Order ID exactly as written in the record, e.g. the number after "
+                                                  "'Order', 'ref #', 'id' or a leading '#' ('#1003' -> '1003'), or null "
+                                                  "if absent.")
     buyer: str | None = Field(None, description="Buyer full name exactly as written, or null if absent.")
     state: str | None = Field(None, description="US state exactly as written in the record (code or name), or null if absent.")
     total: float | None = Field(None, description="Order total as a number without currency symbols, or null if absent.")
